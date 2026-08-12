@@ -1,6 +1,6 @@
 streamlit
 gspread
 google-auth
-oauthlib
+google-auth-oauthlib
 requests
 pandas
