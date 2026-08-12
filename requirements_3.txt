@@ -1,5 +1,6 @@
-streamlit>=1.42
-Authlib
+streamlit
 gspread
 google-auth
+oauthlib
+requests
 pandas
