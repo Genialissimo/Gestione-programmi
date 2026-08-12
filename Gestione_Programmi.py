@@ -164,23 +164,21 @@ def elimina_riga_foglio(_workbook, nome_foglio: str, riga_da_eliminare: int):
 
 
 def leggi_utente_da_email(_workbook, email: str):
-    """Cerca l'email (già verificata da Google) nel foglio 'Utenti' e
-    ritorna (nome, ruolo) — entrambi None se l'email non è presente o il
-    foglio non è leggibile. Il confronto ignora maiuscole/minuscole e spazi,
-    perché le email possono avere case diverso tra Google e il foglio."""
+    """Cerca l'email (già verificata da Google) nel foglio 'Utenti' usando
+    le colonne: 'Utente' (B), 'Indirizzo' (C), 'Ruolo' (D)."""
     df, err = leggi_foglio_come_df(_workbook, NOME_FOGLIO_UTENTI, RIGA_INTESTAZIONE_UTENTI)
     if err or df is None or df.empty:
         return None, None
-    if "Email" not in df.columns:
+    if "Indirizzo" not in df.columns:
         return None, None
 
     email_norm = (email or "").strip().lower()
-    corrispondenza = df[df["Email"].astype(str).str.strip().str.lower() == email_norm]
+    corrispondenza = df[df["Indirizzo"].astype(str).str.strip().str.lower() == email_norm]
     if corrispondenza.empty:
         return None, None
 
     riga = corrispondenza.iloc[0]
-    nome = str(riga.get("Cognome e Nome", "")).strip()
+    nome = str(riga.get("Utente", "")).strip()
     ruolo_grezzo = str(riga.get("Ruolo", "")).strip().lower()
     if ruolo_grezzo not in ("amministratore", "editor", "utente"):
         ruolo_grezzo = "utente"  # ruolo mancante o scritto male -> il più restrittivo
