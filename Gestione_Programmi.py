@@ -164,24 +164,35 @@ def elimina_riga_foglio(_workbook, nome_foglio: str, riga_da_eliminare: int):
 
 
 def leggi_utente_da_email(_workbook, email: str):
-    """Cerca l'email (già verificata da Google) nel foglio 'Utenti' usando
-    le colonne: 'Utente' (B), 'Indirizzo' (C), 'Ruolo' (D)."""
+    """Cerca l'email verificata da Google nel foglio 'Utenti' controllando
+    le colonne 'Indirizzo' (o 'Email'), 'Utente' (o 'Cognome e Nome') e 'Ruolo'."""
     df, err = leggi_foglio_come_df(_workbook, NOME_FOGLIO_UTENTI, RIGA_INTESTAZIONE_UTENTI)
     if err or df is None or df.empty:
         return None, None
-    if "Indirizzo" not in df.columns:
+
+    # Mappa le colonne convertendo i nomi in minuscolo per evitare errori di battitura
+    colonne_lower = {str(c).strip().lower(): c for c in df.columns}
+    
+    col_email = colonne_lower.get("indirizzo") or colonne_lower.get("email")
+    col_nome = colonne_lower.get("utente") or colonne_lower.get("cognome e nome")
+    col_ruolo = colonne_lower.get("ruolo")
+
+    if not col_email:
         return None, None
 
     email_norm = (email or "").strip().lower()
-    corrispondenza = df[df["Indirizzo"].astype(str).str.strip().str.lower() == email_norm]
+    corrispondenza = df[df[col_email].astype(str).str.strip().str.lower() == email_norm]
+    
     if corrispondenza.empty:
         return None, None
 
     riga = corrispondenza.iloc[0]
-    nome = str(riga.get("Utente", "")).strip()
-    ruolo_grezzo = str(riga.get("Ruolo", "")).strip().lower()
+    nome = str(riga.get(col_nome, "")).strip() if col_nome else ""
+    ruolo_grezzo = str(riga.get(col_ruolo, "")).strip().lower() if col_ruolo else "utente"
+    
     if ruolo_grezzo not in ("amministratore", "editor", "utente"):
-        ruolo_grezzo = "utente"  # ruolo mancante o scritto male -> il più restrittivo
+        ruolo_grezzo = "utente"
+
     return (nome or email), ruolo_grezzo
 
 
