@@ -1,18 +1,9 @@
 """
-app.py
 Gestione Programmi - Web App (Streamlit + Google Sheets)
 
 Scheletro costruito sulla stessa architettura di "Gestione Registrazioni SEG":
 sidebar con logout, navigazione tramite card cliccabili (session_state.pagina),
 stesso stile CSS per card/tab/post-it.
-
-L'accesso però usa il login reale con Google (st.login), come AppSheet: dopo
-il login, l'email verificata da Google viene cercata nel foglio "Utenti" per
-sapere chi è la persona e quale ruolo ha (Amministratore / Editor / Utente).
-
-Le sezioni "I miei impegni", "Questa settimana" e "Programmi" sono per ora
-segnaposto: quando mi dirai la struttura dei fogli Google da collegare,
-si popolano seguendo lo stesso schema già usato per "Tabella Informazioni".
 """
 
 from datetime import datetime
@@ -41,15 +32,9 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive.readonly",
 ]
 
-# Foglio con la corrispondenza Email -> Nome -> Ruolo, usato subito dopo il
-# login Google per sapere chi è la persona. Colonne attese: 'Email',
-# 'Cognome e Nome', 'Ruolo' (valori Ruolo: Amministratore / Editor / Utente).
 NOME_FOGLIO_UTENTI = "Utenti"
 RIGA_INTESTAZIONE_UTENTI = 1
 
-# Nomi dei fogli Google che useremo quando colleghiamo i dati veri.
-# Per ora sono solo segnaposto: aggiornali con i nomi reali del tuo foglio
-# quando mi dai la struttura, esattamente come per SEG.
 NOME_FOGLIO_IMPEGNI = "Impegni"
 NOME_FOGLIO_SETTIMANA = "Programmazione Settimanale"
 NOME_FOGLIO_ADUNANZE = "Adunanze"
@@ -59,15 +44,11 @@ NOME_FOGLIO_ANNUNCI = "Annunci"
 
 
 # ─────────────────────────────────────────────────────────────────
-# CONNESSIONE A GOOGLE SHEETS (dati dell'app — separata dal login Google
-# dell'utente, che è gestito da st.login()/st.user più sotto). Richiede gli
-# stessi 'secrets' di SEG: gcp_service_account e sheet_id, ma per QUESTA app
-# con un foglio Google Sheets dedicato a "Gestione Programmi").
+# CONNESSIONE A GOOGLE SHEETS
 # ─────────────────────────────────────────────────────────────────
 @st.cache_resource(show_spinner=False)
 def get_client() -> gspread.Client:
-    """Autentica il programma verso Google tramite l'account di servizio
-    definito nei 'secrets' dell'app."""
+    """Autentica il programma verso Google tramite l'account di servizio."""
     credenziali = Credentials.from_service_account_info(
         st.secrets["gcp_service_account"], scopes=SCOPES
     )
@@ -76,8 +57,7 @@ def get_client() -> gspread.Client:
 
 @st.cache_resource(show_spinner=False)
 def apri_foglio_dati():
-    """Apre il foglio Google dati (l'ID è definito nei secrets, in
-    'sheet_id'). Ritorna (workbook, errore)."""
+    """Apre il foglio Google dati."""
     try:
         client = get_client()
         wb = client.open_by_key(st.secrets["sheet_id"])
@@ -94,8 +74,7 @@ def apri_foglio_dati():
 
 @st.cache_data(ttl=60, show_spinner=False)
 def leggi_foglio_come_df(_workbook, nome_foglio: str, riga_intestazione: int = 1):
-    """Legge un foglio (tab) del workbook e lo ritorna come DataFrame.
-    Ritorna (dataframe, errore)."""
+    """Legge un foglio (tab) del workbook e lo ritorna come DataFrame."""
     try:
         ws = _workbook.worksheet(nome_foglio)
     except gspread.WorksheetNotFound:
@@ -133,9 +112,7 @@ def leggi_foglio_come_df(_workbook, nome_foglio: str, riga_intestazione: int = 1
 
 def salva_riga_foglio(_workbook, nome_foglio: str, riga_intestazione: int,
                        valori: dict, riga_da_aggiornare: int = None):
-    """Scrive una nuova riga in fondo a un foglio, oppure aggiorna una riga
-    esistente se 'riga_da_aggiornare' è specificato. Ritorna
-    (successo: bool, errore: str|None)."""
+    """Scrive o aggiorna una riga nel foglio."""
     try:
         ws = _workbook.worksheet(nome_foglio)
         intestazioni = ws.row_values(riga_intestazione)
@@ -153,8 +130,7 @@ def salva_riga_foglio(_workbook, nome_foglio: str, riga_intestazione: int,
 
 
 def elimina_riga_foglio(_workbook, nome_foglio: str, riga_da_eliminare: int):
-    """Elimina una riga (numero 1-based) da un foglio. Ritorna
-    (successo: bool, errore: str|None)."""
+    """Elimina una riga da un foglio."""
     try:
         ws = _workbook.worksheet(nome_foglio)
         ws.delete_rows(riga_da_eliminare)
@@ -165,22 +141,30 @@ def elimina_riga_foglio(_workbook, nome_foglio: str, riga_da_eliminare: int):
 
 def leggi_utente_da_email(_workbook, email: str):
     """Cerca l'email verificata da Google nel foglio 'Utenti' controllando
-    le colonne 'Indirizzo' (o 'Email'), 'Utente' (o 'Cognome e Nome') e 'Ruolo'."""
+    le colonne specifiche: B (Utente), C (Indirizzo), D (Ruolo)."""
     df, err = leggi_foglio_come_df(_workbook, NOME_FOGLIO_UTENTI, RIGA_INTESTAZIONE_UTENTI)
     if err or df is None or df.empty:
         return None, None
 
-    # Mappa le colonne convertendo i nomi in minuscolo per evitare errori di battitura
     colonne_lower = {str(c).strip().lower(): c for c in df.columns}
     
     col_email = colonne_lower.get("indirizzo") or colonne_lower.get("email")
     col_nome = colonne_lower.get("utente") or colonne_lower.get("cognome e nome")
     col_ruolo = colonne_lower.get("ruolo")
 
+    # Fallback posizionale se le intestazioni differiscono: B=1, C=2, D=3
+    if not col_email and len(df.columns) >= 3:
+        col_nome = df.columns[1]   # Colonna B
+        col_email = df.columns[2]  # Colonna C
+        if len(df.columns) >= 4:
+            col_ruolo = df.columns[3] # Colonna D
+
     if not col_email:
         return None, None
 
     email_norm = (email or "").strip().lower()
+    
+    # Scansione dinamica su tutto il DataFrame
     corrispondenza = df[df[col_email].astype(str).str.strip().str.lower() == email_norm]
     
     if corrispondenza.empty:
@@ -197,7 +181,7 @@ def leggi_utente_da_email(_workbook, email: str):
 
 
 # ==============================================================================
-# 2. PANNELLO DI AUTENTICAZIONE (login reale con Google)
+# 2. PANNELLO DI AUTENTICAZIONE
 # ==============================================================================
 if not st.user.is_logged_in:
     col1, col2, col3 = st.columns([1, 2, 1])
@@ -206,12 +190,12 @@ if not st.user.is_logged_in:
         st.subheader("Gestione Programmi")
         st.write("Accedi con il tuo account Google per entrare nell'applicazione.")
         if st.button("🔐 Accedi con Google", type="primary", use_container_width=True):
-            st.login()
-    st.stop()  # Blocca l'esecuzione finché non si è fatto il login
+            st.login("google")
+    st.stop()
 
 
 # ==============================================================================
-# 3. AREA RISERVATA (DISPONIBILE SOLO A UTENTI AUTORIZZATI)
+# 3. AREA RISERVATA
 # ==============================================================================
 workbook, errore = apri_foglio_dati()
 collegato = workbook is not None
@@ -247,7 +231,7 @@ with st.sidebar:
         st.logout()
 
 # ─────────────────────────────────────────────────────────────────
-# NAVIGAZIONE (tramite le card)
+# NAVIGAZIONE
 # ─────────────────────────────────────────────────────────────────
 if "pagina" not in st.session_state:
     st.session_state.pagina = "home"
@@ -257,11 +241,6 @@ def vai_a(pagina: str):
     st.session_state.pagina = pagina
 
 
-# ─────────────────────────────────────────────────────────────────
-# PAGINA: HOME (con le 5 tab: Home, I miei impegni, Questa settimana,
-# Tabella Informazioni, Programmi)
-# ─────────────────────────────────────────────────────────────────
-# ── Card sotto "Tabella Informazioni": solo testo, senza icona ──
 CARD_INFORMAZIONI = [
     ("", "", "Adunanze", "Informazioni e materiale relativo alle adunanze.", "info_adunanze"),
     ("", "", "Ministero", "Informazioni e materiale relativo al ministero.", "info_ministero"),
@@ -271,9 +250,6 @@ CARD_INFORMAZIONI = [
 
 
 def mostra_griglia_card(lista_card):
-    """Mostra le card di una tab in una griglia a 2 colonne. Se 'icon'
-    è vuoto, la card viene mostrata senza il riquadro icona — solo
-    titolo e descrizione (usata per "Tabella Informazioni")."""
     for i in range(0, len(lista_card), 2):
         coppia = lista_card[i:i + 2]
         cols = st.columns(2)
@@ -301,14 +277,14 @@ def mostra_griglia_card(lista_card):
                     st.caption(desc)
 
                     st.button(" ", key=f"nav_{pagina}", disabled=not collegato,
-                             on_click=vai_a, args=(pagina,), use_container_width=True)
+                              on_click=vai_a, args=(pagina,), use_container_width=True)
 
 
 def _inietta_css_home():
-    """CSS Custom per card, tab e post-it — stesso stile di Gestione Registrazioni SEG."""
+    """CSS Custom per card, tab e post-it."""
     st.markdown("""
     <style>
-
+        .custom-card-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -373,7 +349,6 @@ def _inietta_css_home():
             border: 1px solid rgba(239, 68, 68, 0.3);
         }
 
-        /* Tab in cima - accento verde */
         .stTabs [data-baseweb="tab-list"] {
             gap: 6px;
             border-bottom: 1px solid rgba(128,128,128,0.3);
@@ -396,7 +371,6 @@ def _inietta_css_home():
             border-radius: 2px;
         }
 
-        /* ── CARD INTERA CLICCABILE SU TUTTA LA SUPERFICIE ── */
         div[class*="st-key-card_"] {
             position: relative !important;
             box-shadow: 3px 5px 14px rgba(0,0,0,0.18);
@@ -446,7 +420,6 @@ def _inietta_css_home():
             cursor: not-allowed !important;
         }
 
-        /* ── Card Post-it (usata per il benvenuto in Home) ── */
         .postit-card {
             width: 92%;
             max-width: 900px;
@@ -501,8 +474,6 @@ def mostra_home():
     </div>
     """
 
-    # ── Card sotto "Tabella Informazioni": solo testo, senza icona ──
-    # ── Tab principali ──
     nomi_tab = ["🏠 Home", "📋 I miei impegni", "📅 Questa settimana", "📊 Tabella Informazioni", "🗓️ Programmi"]
     tabs = st.tabs(nomi_tab)
 
@@ -511,31 +482,21 @@ def mostra_home():
 
     with tabs[1]:
         st.subheader("📋 I miei impegni")
-        st.caption("🚧 Sezione in costruzione — verrà collegata a un foglio Google "
-                   "quando definiremo la struttura dei dati.")
+        st.caption("🚧 Sezione in costruzione.")
 
     with tabs[2]:
         st.subheader("📅 Questa settimana")
-        st.caption("🚧 Sezione in costruzione — verrà collegata a un foglio Google "
-                   "quando definiremo la struttura dei dati.")
+        st.caption("🚧 Sezione in costruzione.")
 
     with tabs[3]:
         mostra_griglia_card(CARD_INFORMAZIONI)
 
     with tabs[4]:
         st.subheader("🗓️ Programmi")
-        st.caption("🚧 Sezione in costruzione — verrà collegata a un foglio Google "
-                   "quando definiremo la struttura dei dati.")
+        st.caption("🚧 Sezione in costruzione.")
 
 
-# ─────────────────────────────────────────────────────────────────
-# PAGINE SEGNAPOSTO: le 4 card di "Tabella Informazioni"
-# ─────────────────────────────────────────────────────────────────
 def _pagina_segnaposto(titolo: str, emoji: str, nome_foglio_futuro: str):
-    """Pagina segnaposto generica: mostra il titolo e un avviso che la
-    sezione è da collegare a un foglio Google. 'nome_foglio_futuro' è solo
-    indicativo, per ricordarsi quale NOME_FOGLIO_* andrà usato quando si
-    collegano i dati veri."""
     st.title(f"{emoji} {titolo}")
     st.button("🏠 Torna alla Home", key=f"home_da_{titolo.lower()}", use_container_width=True,
               on_click=vai_a, args=("home",))
@@ -544,8 +505,7 @@ def _pagina_segnaposto(titolo: str, emoji: str, nome_foglio_futuro: str):
         st.warning("⚠️ Nessun foglio dati collegato.")
         return
 
-    st.info(f"🚧 Sezione in costruzione. Quando definiremo la struttura, questa pagina "
-            f"leggerà i dati dal foglio Google «{nome_foglio_futuro}» (o quello che sceglierai).")
+    st.info(f"🚧 Sezione in costruzione. Questa pagina leggerà i dati dal foglio Google «{nome_foglio_futuro}».")
 
 
 def mostra_info_adunanze():
@@ -564,10 +524,6 @@ def mostra_info_annunci():
     _pagina_segnaposto("Annunci", "📣", NOME_FOGLIO_ANNUNCI)
 
 
-# ─────────────────────────────────────────────────────────────────
-# VISTA RIDOTTA PER IL RUOLO "UTENTE": solo Tabella Informazioni,
-# senza la barra delle tab con le altre sezioni.
-# ─────────────────────────────────────────────────────────────────
 def mostra_tabella_informazioni_ridotta():
     ora_ora = datetime.now().strftime('%d/%m/%Y %H:%M')
     st.markdown(
@@ -586,12 +542,8 @@ def mostra_tabella_informazioni_ridotta():
 
 
 # ─────────────────────────────────────────────────────────────────
-# CONTROLLO ACCESSO RISTRETTO PER IL RUOLO "UTENTE"
+# CONTROLLO ACCESSO E ROUTING
 # ─────────────────────────────────────────────────────────────────
-# Le uniche pagine raggiungibili dal ruolo Utente sono la Tabella
-# Informazioni (vista ridotta, senza tab) e le 4 sotto-pagine delle sue
-# card. Per qualunque altra pagina lo si riporta lì, a scanso di
-# manomissioni dell'URL o di session_state.
 PAGINE_CONSENTITE_UTENTE = {"home", "info_adunanze", "info_ministero", "info_comunicazioni", "info_annunci"}
 if st.session_state.ruolo == "utente" and st.session_state.pagina not in PAGINE_CONSENTITE_UTENTE:
     st.session_state.pagina = "home"
@@ -600,10 +552,6 @@ if st.session_state.ruolo == "utente" and st.session_state.pagina == "home":
     mostra_tabella_informazioni_ridotta()
     st.stop()
 
-
-# ─────────────────────────────────────────────────────────────────
-# ROUTING — Amministratore ed Editor (accesso alle 5 tab)
-# ─────────────────────────────────────────────────────────────────
 if st.session_state.pagina == "info_adunanze":
     mostra_info_adunanze()
 elif st.session_state.pagina == "info_ministero":
