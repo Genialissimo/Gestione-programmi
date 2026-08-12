@@ -189,8 +189,7 @@ if not st.user.is_logged_in:
         st.title("🔒 Accesso Riservato")
         st.subheader("Gestione Programmi")
         st.write("Accedi con il tuo account Google per entrare nell'applicazione.")
-        if st.button("🔐 Accedi con Google", type="primary", use_container_width=True):
-            st.login()
+        st.login()  # Chiamata diretta senza st.button
     st.stop()
 
 
