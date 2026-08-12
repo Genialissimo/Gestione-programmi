@@ -23,6 +23,24 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+# ==============================================================================
+# 2. PANNELLO DI AUTENTICAZIONE
+# ==============================================================================
+if not st.user.is_logged_in:
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.title("🔒 Accesso Riservato")
+        st.subheader("Gestione Programmi")
+        st.write("Accedi con il tuo account Google per entrare nell'applicazione.")
+        
+        # Gestore di stato per conservare l'esecuzione di st.login() durante il redirect OAuth
+        if st.button("🔐 Accedi con Google", type="primary", use_container_width=True):
+            st.session_state.in_login = True
+
+        if st.session_state.get("in_login", False):
+            st.login()
+            
+    st.stop()
 
 # ─────────────────────────────────────────────────────────────────
 # COSTANTI E CONFIGURAZIONI DEL SISTEMA
