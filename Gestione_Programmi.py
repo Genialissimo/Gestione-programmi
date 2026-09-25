@@ -1,9 +1,12 @@
 """
 Gestione Programmi - Web App (Streamlit + Google Sheets)
 
-Scheletro costruito sulla stessa architettura di "Gestione Registrazioni SEG":
-sidebar con logout, navigazione tramite card cliccabili (session_state.pagina),
-stesso stile CSS per card/tab/post-it.
+Architettura allineata a "Gestione Registrazioni SEG":
+- Gestione della barra laterale nascosta prima del login tramite CSS
+- Autenticazione Google tramite pulsante "🔑 Accedi con Google"
+- Verifica permessi sul foglio Google "Utenti"
+- Gestione ruoli e modalità sola lettura
+- Menu laterale coordinato con link di navigazione tra programmi
 """
 
 from datetime import datetime
@@ -24,11 +27,11 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Inizializzazione sicura delle variabili di stato essenziali
+# Inizializzazione sicura della pagina nello stato della sessione
 if "pagina" not in st.session_state:
     st.session_state.pagina = "home"
 
-# ── Titoli più piccoli in tutta l'app ────────────────────────────────────────
+# ── Stile CSS per titoli e interfaccia ───────────────────────────────────────
 st.markdown("""
 <style>
 h1 { font-size: 1.5rem !important; }
@@ -38,21 +41,8 @@ h3 { font-size: 1.1rem !important; }
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# 2. PANNELLO DI AUTENTICAZIONE
+# 2. COSTANTI E CONFIGURAZIONI DEL SISTEMA
 # ==============================================================================
-if not st.user.is_logged_in:
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.title("🔒 Accesso Riservato")
-        st.subheader("Gestione Programmi")
-        st.write("Accedi con il tuo account Google per entrare nell'applicazione.")
-        st.login()  # Chiamata diretta senza st.button
-    st.stop()
-
-
-# ─────────────────────────────────────────────────────────────────
-# COSTANTI E CONFIGURAZIONI DEL SISTEMA
-# ─────────────────────────────────────────────────────────────────
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive.readonly",
@@ -69,9 +59,9 @@ NOME_FOGLIO_COMUNICAZIONI = "Comunicazioni"
 NOME_FOGLIO_ANNUNCI = "Annunci"
 
 
-# ─────────────────────────────────────────────────────────────────
-# CONNESSIONE A GOOGLE SHEETS
-# ─────────────────────────────────────────────────────────────────
+# ==============================================================================
+# 3. FUNZIONI HELPER E CONNESSIONE GOOGLE SHEETS
+# ==============================================================================
 @st.cache_resource(show_spinner=False)
 def get_client() -> gspread.Client:
     """Autentica il programma verso Google tramite l'account di servizio."""
@@ -83,7 +73,7 @@ def get_client() -> gspread.Client:
 
 @st.cache_resource(show_spinner=False)
 def apri_foglio_dati():
-    """Apre il foglio Google dati."""
+    """Apre il foglio Google dati. Ritorna (workbook, errore)."""
     try:
         client = get_client()
         wb = client.open_by_key(st.secrets["sheet_id"])
@@ -96,6 +86,11 @@ def apri_foglio_dati():
         )
     except Exception as e:
         return None, f"Errore durante il collegamento: {e}"
+
+
+def sola_lettura() -> bool:
+    """Ritorna True se l'utente corrente ha accesso in sola lettura (ruolo 'utente')."""
+    return st.session_state.get("ruolo") == "utente"
 
 
 @st.cache_data(ttl=60, show_spinner=False)
@@ -206,38 +201,59 @@ def leggi_utente_da_email(_workbook, email: str):
 
 
 # ==============================================================================
-# 3. AREA RISERVATA
+# 4. PANNELLO DI AUTENTICAZIONE GOOGLE (Se non loggato, nasconde la sidebar)
 # ==============================================================================
-workbook, errore = apri_foglio_dati()
-collegato = workbook is not None
+if not st.user.is_logged_in:
+    st.markdown("""
+        <style>
+            [data-testid="stSidebar"] {display: none !important;}
+            [data-testid="collapsedControl"] {display: none !important;}
+        </style>
+    """, unsafe_allow_html=True)
 
-if "ruolo" not in st.session_state or st.session_state.get("email_verificata") != st.user.email:
-    if not collegato:
-        st.error("⚠️ Impossibile verificare l'utente: il foglio dati non è raggiungibile.")
-        st.caption(errore or "")
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.title("🔒 Accesso Riservato")
+        st.subheader("Gestione Programmi")
+        st.write("Accedi utilizzando il tuo account Google autorizzato.")
+        if st.button("🔑 Accedi con Google", use_container_width=True, type="primary"):
+            st.login()
+    st.stop()
+
+# ==============================================================================
+# 5. VERIFICA UTENTE E GESTIONE SESSIONE
+# ==============================================================================
+email_autenticata = (st.user.email or "").strip().lower()
+
+if st.session_state.get("email_logged") != email_autenticata:
+    workbook, errore_conn = apri_foglio_dati()
+    if errore_conn:
+        st.error(f"⚠️ Impossibile verificare l'utente: {errore_conn}")
+        st.info("Potrebbe essere un problema temporaneo di connessione al foglio Google. Riprova tra qualche secondo.")
         if st.button("🚪 Esci", use_container_width=True):
             st.logout()
         st.stop()
 
-    nome_trovato, ruolo_trovato = leggi_utente_da_email(workbook, st.user.email)
+    nome_trovato, ruolo_trovato = leggi_utente_da_email(workbook, email_autenticata)
     if not nome_trovato:
-        st.error(f"⚠️ L'indirizzo **{st.user.email}** non è autorizzato ad accedere a questa "
-                 f"applicazione. Contatta l'amministratore per farti aggiungere al foglio «{NOME_FOGLIO_UTENTI}».")
-        if st.button("🚪 Esci", use_container_width=True):
+        st.error(f"⚠️ L'account **{email_autenticata}** non è autorizzato ad accedere a questa applicazione.")
+        st.info(f"Contatta l'amministratore per farti aggiungere al foglio «{NOME_FOGLIO_UTENTI}».")
+        if st.button("🚪 Esci e riprova con un altro account", use_container_width=True):
+            for chiave in ("email_logged", "nome_utente", "ruolo", "pagina"):
+                st.session_state.pop(chiave, None)
             st.logout()
         st.stop()
 
+    st.session_state.email_logged = email_autenticata
     st.session_state.nome_utente = nome_trovato
     st.session_state.ruolo = ruolo_trovato
-    st.session_state.email_verificata = st.user.email
 
 # ==============================================================================
-# BARRA LATERALE: NAVIGAZIONE PROGRAMMI, DATI UTENTE E LOGOUT
+# 6. BARRA LATERALE (NAVIGAZIONE PROGRAMMI, UTENTE E LOGOUT)
 # ==============================================================================
 with st.sidebar:
     st.markdown("### 📁 I miei Programmi")
 
-    # Inserisci qui i link ufficiali dei tuoi programmi
     programmi = {
         "Gestione TEST Registrazioni Segretario": "https://gestioneseg-test.streamlit.app/",
         "Gestione Programmi": "https://gestione-programmi-7kb2cuwy6ntgwe7kufezrg.streamlit.app/",
@@ -256,18 +272,18 @@ with st.sidebar:
 
     st.write("👤 Utente connesso:")
     st.write(f"**{st.session_state.get('nome_utente', 'Utente')}**")
-    st.write(f"📧 `{st.user.email}`")
+    st.write(f"📧 `{st.session_state.email_logged}`")
     
     ruolo_utente = str(st.session_state.get("ruolo", "Non specificato")).capitalize()
     st.write(f"🏷️ **Ruolo:** `{ruolo_utente}`")
 
-    if "sola_lettura" in globals() and sola_lettura():
+    if sola_lettura():
         st.caption("🔒 Modalità sola lettura: puoi consultare i dati ma non modificarli.")
 
     st.divider()
 
     if st.button("🚪 Logout", type="secondary", use_container_width=True):
-        for chiave in ("nome_utente", "ruolo", "email_verificata", "pagina"):
+        for chiave in ("nome_utente", "ruolo", "email_logged", "pagina"):
             st.session_state.pop(chiave, None)
         st.logout()
 # ─────────────────────────────────────────────────────────────────
