@@ -272,14 +272,23 @@ if "ruolo" not in st.session_state or st.session_state.get("email_verificata") !
     st.session_state.ruolo = ruolo_trovato
     st.session_state.email_verificata = st.user.email
 
+# Barra laterale con dati utente e Logout
 with st.sidebar:
     st.write("👤 Utente connesso:")
-    st.write(f"**{st.session_state.nome_utente}**")
-    st.caption(f"Ruolo: {st.session_state.ruolo.capitalize()}")
-    st.caption(f"📧 `{st.user.email}`")
+    st.write(f"📧 `{st.session_state.email_logged}`")
+    
+    # Recupera il ruolo salvato in sessione e lo mostra con l'iniziale maiuscola
+    ruolo_utente = str(st.session_state.get("ruolo", "Non specificato")).capitalize()
+    st.write(f"🏷️ **Ruolo:** `{ruolo_utente}`")
+
+    if sola_lettura():
+        st.caption("🔒 Modalità sola lettura: puoi consultare i dati ma non modificarli.")
+
+    st.divider()  # Linea di separazione visiva
+    
     if st.button("🚪 Logout", type="secondary", use_container_width=True):
-        for chiave in ("nome_utente", "ruolo", "email_verificata"):
-            st.session_state.pop(chiave, None)
+        st.session_state.pop("ruolo", None)
+        st.session_state.pop("email_logged", None)
         st.logout()
 
 # ─────────────────────────────────────────────────────────────────
