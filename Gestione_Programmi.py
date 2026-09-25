@@ -45,21 +45,16 @@ with st.sidebar:
 
     st.markdown("### 🚀 I miei Programmi")
 
-    # Mappa dei tuoi programmi con i rispettivi link
+    # Mappa dei tuoi programmi con i rispettivi link ufficiali
     programmi = {
-        "Seleziona un programma...": "",
+        "Gestione Registrazioni": "https://gestioneseg.streamlit.app/",
         "Gestione TEST Registrazioni": "https://gestioneseg-test.streamlit.app/",
-        # "Altro Programma": "https://...",
+        # Aggiungi qui gli altri programmi quando disponibili
     }
 
-    scelta = st.selectbox("Vai a:", list(programmi.keys()))
-
-    # Se l'utente seleziona un programma valido, reindirizza la pagina corrente
-    if scelta != "Seleziona un programma..." and programmi[scelta]:
-        url_destinazione = programmi[scelta]
-        # Questo comando JavaScript forza la pagina attuale a cambiare URL senza aprire nuove schede
+    for nome, url in programmi.items():
         st.markdown(
-            f'<meta http-equiv="refresh" content="0;url={url_destinazione}">',
+            f'<a href="{url}" target="_blank" style="text-decoration: none;"><div style="padding: 6px 10px; margin-bottom: 5px; background-color: #f0f2f6; border-radius: 4px; color: #31333F; font-size: 14px; font-weight: 500;">🔗 {nome}</div></a>',
             unsafe_allow_html=True,
         )
 # ==============================================================================
