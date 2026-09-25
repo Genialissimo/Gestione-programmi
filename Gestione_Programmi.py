@@ -37,26 +37,27 @@ h3 { font-size: 1.1rem !important; }
 # 1.1. BARRA LATERALE CON NAVIGAZIONE RAPIDA FRA I PROGRAMMI
 # ==============================================================================
 with st.sidebar:
-    st.write("Utente connesso")
-    if st.button("Logout"):
-        st.success("Logout effettuato")
+    st.markdown("### 📁 I miei Programmi")
 
-    st.divider()
-
-    st.markdown("### 📚 I miei Programmi")
-
-    # Mappa dei tuoi programmi con i rispettivi link ufficiali
+    # Inserisci qui i link ufficiali dei tuoi programmi
     programmi = {
-        "Gestione Registrazioni": "https://gestioneseg.streamlit.app/",
-        "Gestione TEST Registrazioni": "https://gestioneseg-test.streamlit.app/",
-        # Aggiungi qui gli altri programmi quando disponibili
+        "Gestione TEST Registrazioni Segretario": "https://gestioneseg-test.streamlit.app/",
+        "Gestione Programmi": (
+            "https://gestione-programmi-7kb2cuwy6ntgwe7kufezrg.streamlit.app/"
+        ),
     }
 
+    links_html = ""
     for nome, url in programmi.items():
-        st.markdown(
-            f'<a href="{url}" target="_blank" style="text-decoration: none;"><div style="padding: 6px 10px; margin-bottom: 5px; background-color: #f0f2f6; border-radius: 4px; color: #31333F; font-size: 14px; font-weight: 500;">🔗 {nome}</div></a>',
-            unsafe_allow_html=True,
-        )
+        links_html += f'<div style="margin-bottom: 2px;"><a href="{url}" target="_blank" style="text-decoration: none; color: #31333F; font-size: 14px; font-weight: 500;">📈 {nome}</a></div>'
+
+    st.markdown(
+        f'<div style="padding-left: 12px; margin-bottom: 10px;">{links_html}</div>',
+        unsafe_allow_html=True,
+    )
+
+    # Linea separatrice
+    st.divider()
 # ==============================================================================
 # 2. PANNELLO DI AUTENTICAZIONE
 # ==============================================================================
