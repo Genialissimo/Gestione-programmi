@@ -221,12 +221,14 @@ if not st.user.is_logged_in:
     st.stop()
 
 # ==============================================================================
-# 5. VERIFICA UTENTE E GESTIONE SESSIONE
+# 5. VERIFICA UTENTE E GESTIONE SESSIONE & CONNESSIONE
 # ==============================================================================
+workbook, errore_conn = apri_foglio_dati()
+collegato = workbook is not None
+
 email_autenticata = (st.user.email or "").strip().lower()
 
 if st.session_state.get("email_logged") != email_autenticata:
-    workbook, errore_conn = apri_foglio_dati()
     if errore_conn:
         st.error(f"⚠️ Impossibile verificare l'utente: {errore_conn}")
         st.info("Potrebbe essere un problema temporaneo di connessione al foglio Google. Riprova tra qualche secondo.")
