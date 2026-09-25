@@ -34,31 +34,6 @@ h3 { font-size: 1.1rem !important; }
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# 1.1. BARRA LATERALE CON NAVIGAZIONE RAPIDA FRA I PROGRAMMI
-# ==============================================================================
-with st.sidebar:
-    st.markdown("### 📁 I miei Programmi")
-
-    # Inserisci qui i link ufficiali dei tuoi programmi
-    programmi = {
-        "Gestione TEST Registrazioni Segretario": "https://gestioneseg-test.streamlit.app/",
-        "Gestione Programmi": (
-            "https://gestione-programmi-7kb2cuwy6ntgwe7kufezrg.streamlit.app/"
-        ),
-    }
-
-    links_html = ""
-    for nome, url in programmi.items():
-        links_html += f'<div style="margin-bottom: 2px;"><a href="{url}" target="_blank" style="text-decoration: none; color: #31333F; font-size: 14px; font-weight: 500;">📈 {nome}</a></div>'
-
-    st.markdown(
-        f'<div style="padding-left: 12px; margin-bottom: 10px;">{links_html}</div>',
-        unsafe_allow_html=True,
-    )
-
-    # Linea separatrice
-    st.divider()
-# ==============================================================================
 # 2. PANNELLO DI AUTENTICAZIONE
 # ==============================================================================
 if not st.user.is_logged_in:
@@ -67,15 +42,9 @@ if not st.user.is_logged_in:
         st.title("🔒 Accesso Riservato")
         st.subheader("Gestione Programmi")
         st.write("Accedi con il tuo account Google per entrare nell'applicazione.")
-        
-        # Gestore di stato per conservare l'esecuzione di st.login() durante il redirect OAuth
-        if st.button("🔐 Accedi con Google", type="primary", use_container_width=True):
-            st.session_state.in_login = True
-
-        if st.session_state.get("in_login", False):
-            st.login()
-            
+        st.login()  # Chiamata diretta senza st.button
     st.stop()
+
 
 # ─────────────────────────────────────────────────────────────────
 # COSTANTI E CONFIGURAZIONI DEL SISTEMA
@@ -164,7 +133,7 @@ def leggi_foglio_come_df(_workbook, nome_foglio: str, riga_intestazione: int = 1
 
 
 def salva_riga_foglio(_workbook, nome_foglio: str, riga_intestazione: int,
-                       valori: dict, riga_da_aggiornare: int = None):
+                        valori: dict, riga_da_aggiornare: int = None):
     """Scrive o aggiorna una riga nel foglio."""
     try:
         ws = _workbook.worksheet(nome_foglio)
@@ -217,7 +186,6 @@ def leggi_utente_da_email(_workbook, email: str):
 
     email_norm = (email or "").strip().lower()
     
-    # Scansione dinamica su tutto il DataFrame
     corrispondenza = df[df[col_email].astype(str).str.strip().str.lower() == email_norm]
     
     if corrispondenza.empty:
@@ -231,19 +199,6 @@ def leggi_utente_da_email(_workbook, email: str):
         ruolo_grezzo = "utente"
 
     return (nome or email), ruolo_grezzo
-
-
-# ==============================================================================
-# 2. PANNELLO DI AUTENTICAZIONE
-# ==============================================================================
-if not st.user.is_logged_in:
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.title("🔒 Accesso Riservato")
-        st.subheader("Gestione Programmi")
-        st.write("Accedi con il tuo account Google per entrare nell'applicazione.")
-        st.login()  # Chiamata diretta senza st.button
-    st.stop()
 
 
 # ==============================================================================
@@ -272,23 +227,44 @@ if "ruolo" not in st.session_state or st.session_state.get("email_verificata") !
     st.session_state.ruolo = ruolo_trovato
     st.session_state.email_verificata = st.user.email
 
-# Barra laterale con dati utente e Logout
+# ==============================================================================
+# BARRA LATERALE: NAVIGAZIONE PROGRAMMI, DATI UTENTE E LOGOUT
+# ==============================================================================
 with st.sidebar:
+    st.markdown("### 📁 I miei Programmi")
+
+    # Inserisci qui i link ufficiali dei tuoi programmi
+    programmi = {
+        "Gestione TEST Registrazioni Segretario": "https://gestioneseg-test.streamlit.app/",
+        "Gestione Programmi": "https://gestione-programmi-7kb2cuwy6ntgwe7kufezrg.streamlit.app/",
+    }
+
+    links_html = ""
+    for nome, url in programmi.items():
+        links_html += f'<div style="margin-bottom: 2px;"><a href="{url}" target="_blank" style="text-decoration: none; color: #31333F; font-size: 14px; font-weight: 500;">📈 {nome}</a></div>'
+
+    st.markdown(
+        f'<div style="padding-left: 12px; margin-bottom: 10px;">{links_html}</div>',
+        unsafe_allow_html=True,
+    )
+
+    st.divider()
+
     st.write("👤 Utente connesso:")
-    st.write(f"📧 `{st.session_state.email_logged}`")
+    st.write(f"**{st.session_state.get('nome_utente', 'Utente')}**")
+    st.write(f"📧 `{st.user.email}`")
     
-    # Recupera il ruolo salvato in sessione e lo mostra con l'iniziale maiuscola
     ruolo_utente = str(st.session_state.get("ruolo", "Non specificato")).capitalize()
     st.write(f"🏷️ **Ruolo:** `{ruolo_utente}`")
 
-    if sola_lettura():
+    if "sola_lettura" in globals() and sola_lettura():
         st.caption("🔒 Modalità sola lettura: puoi consultare i dati ma non modificarli.")
 
-    st.divider()  # Linea di separazione visiva
-    
+    st.divider()
+
     if st.button("🚪 Logout", type="secondary", use_container_width=True):
-        st.session_state.pop("ruolo", None)
-        st.session_state.pop("email_logged", None)
+        for chiave in ("nome_utente", "ruolo", "email_verificata", "email_logged"):
+            st.session_state.pop(chiave, None)
         st.logout()
 
 # ─────────────────────────────────────────────────────────────────
