@@ -24,6 +24,10 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# Inizializzazione sicura delle variabili di stato essenziali
+if "pagina" not in st.session_state:
+    st.session_state.pagina = "home"
+
 # ── Titoli più piccoli in tutta l'app ────────────────────────────────────────
 st.markdown("""
 <style>
@@ -263,10 +267,9 @@ with st.sidebar:
     st.divider()
 
     if st.button("🚪 Logout", type="secondary", use_container_width=True):
-        for chiave in ("nome_utente", "ruolo", "email_verificata", "email_logged"):
+        for chiave in ("nome_utente", "ruolo", "email_verificata", "pagina"):
             st.session_state.pop(chiave, None)
         st.logout()
-
 # ─────────────────────────────────────────────────────────────────
 # NAVIGAZIONE
 # ─────────────────────────────────────────────────────────────────
