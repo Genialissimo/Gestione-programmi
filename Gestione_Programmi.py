@@ -600,23 +600,42 @@ def mostra_tabella_informazioni_ridotta():
 
 
 # ─────────────────────────────────────────────────────────────────
-# CONTROLLO ACCESSO E ROUTING
+# CONTROLLO ACCESSO E ROUTING (Versione protetta)
 # ─────────────────────────────────────────────────────────────────
-PAGINE_CONSENTITE_UTENTE = {"home", "info_adunanze", "info_ministero", "info_comunicazioni", "info_annunci"}
-if st.session_state.ruolo == "utente" and st.session_state.pagina not in PAGINE_CONSENTITE_UTENTE:
-    st.session_state.pagina = "home"
+PAGINE_CONSENTITE_UTENTE = {
+    "home",
+    "info_adunanze",
+    "info_ministero",
+    "info_comunicazioni",
+    "info_annunci",
+}
 
-if st.session_state.ruolo == "utente" and st.session_state.pagina == "home":
+# Lettura sicura dei valori da st.session_state per evitare KeyError o AttributeError
+ruolo_attuale = st.session_state.get("ruolo", "utente")
+pagina_attuale = st.session_state.get("pagina", "home")
+
+# Allineamento dinamico della chiave di sessione
+if "pagina" not in st.session_state:
+    st.session_state.pagina = pagina_attuale
+
+# Reindirizzamento se un ruolo "utente" tenta di accedere a pagine riservate
+if ruolo_attuale == "utente" and pagina_attuale not in PAGINE_CONSENTITE_UTENTE:
+    st.session_state.pagina = "home"
+    pagina_attuale = "home"
+
+# Rendering della vista ridotta per ruolo "utente" in home
+if ruolo_attuale == "utente" and pagina_attuale == "home":
     mostra_tabella_informazioni_ridotta()
     st.stop()
 
-if st.session_state.pagina == "info_adunanze":
+# Smistamento ed esecuzione delle pagine
+if pagina_attuale == "info_adunanze":
     mostra_info_adunanze()
-elif st.session_state.pagina == "info_ministero":
+elif pagina_attuale == "info_ministero":
     mostra_info_ministero()
-elif st.session_state.pagina == "info_comunicazioni":
+elif pagina_attuale == "info_comunicazioni":
     mostra_info_comunicazioni()
-elif st.session_state.pagina == "info_annunci":
+elif pagina_attuale == "info_annunci":
     mostra_info_annunci()
 else:
     mostra_home()
