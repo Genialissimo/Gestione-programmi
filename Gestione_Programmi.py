@@ -43,7 +43,7 @@ with st.sidebar:
 
     st.divider()
 
-    st.markdown("### 🚀 I miei Programmi")
+    st.markdown("### 📚 I miei Programmi")
 
     # Mappa dei tuoi programmi con i rispettivi link ufficiali
     programmi = {
