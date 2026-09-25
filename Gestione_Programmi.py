@@ -23,6 +23,38 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+# ── Titoli più piccoli in tutta l'app ────────────────────────────────────────
+st.markdown("""
+<style>
+h1 { font-size: 1.5rem !important; }
+h2 { font-size: 1.25rem !important; }
+h3 { font-size: 1.1rem !important; }
+</style>
+""", unsafe_allow_html=True)
+
+# ==============================================================================
+# 1.1. BARRA LATERALE CON NAVIGAZIONE RAPIDA FRA I PROGRAMMI
+# ==============================================================================
+with st.sidebar:
+    st.write("Utente connesso")
+    if st.button("Logout"):
+        st.success("Logout effettuato")
+
+    st.divider()
+
+    st.markdown("### 🚀 I miei Programmi")
+
+    # Inserisci qui i link ufficiali .streamlit.app dei tuoi 5 programmi
+    programmi = {
+        "Gestione TEST Registrazioni": "https://gestioneseg-test.streamlit.app/",
+    }
+
+    for nome, url in programmi.items():
+        st.markdown(
+            f'<a href="{url}" target="_blank" style="text-decoration: none;"><div style="padding: 6px 10px; margin-bottom: 5px; background-color: #f0f2f6; border-radius: 4px; color: #31333F; font-size: 14px; font-weight: 500;">🔗 {nome}</div></a>',
+            unsafe_allow_html=True,
+        )
 # ==============================================================================
 # 2. PANNELLO DI AUTENTICAZIONE
 # ==============================================================================
